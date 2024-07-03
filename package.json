@@ -1,17 +1,17 @@
 {
   "private": true,
-  "displayName": "Plugin Name",
-  "name": "homebridge-plugin-name",
+  "displayName": "Window Blinds Pattern",
+  "name": "homebridge-plugin-window-blinds-pattern",
   "version": "1.0.0",
-  "description": "A short description about what your plugin does.",
+  "description": "Plungin for Homebridge to control window blinds with a regex pattern.",
   "license": "Apache-2.0",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/USERNAME/GITHUB_PROJECT_NAME.git"
+    "url": "git+https://github.com/carlosfrutos/homebridge-plugin-window-blinds-pattern.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
+    "url": "https://github.com/carlosfrutos/homebridge-plugin-window-blinds-pattern/issues"
   },
   "engines": {
     "node": "^18.17.0 || ^20.9.0",
@@ -25,7 +25,9 @@
     "prepublishOnly": "npm run lint && npm run build"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "window-blinds",
+    "regex pattern"
   ],
   "devDependencies": {
     "@types/node": "^20.12.13",

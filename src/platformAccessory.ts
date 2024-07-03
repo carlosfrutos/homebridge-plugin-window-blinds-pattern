@@ -1,26 +1,26 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
-import { ExampleHomebridgePlatform } from './platform.js';
+import { WindowBlindsPatternHomebridgePlatform } from './platform.js';
 
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class ExamplePlatformAccessory {
+export class WindowBlindsPatternPlatformAccessory {
   private service: Service;
 
   /**
-   * These are just used to create a working example
+   * These are just used to create a working WindowBlindsPattern
    * You should implement your own code to track the state of your accessory
    */
-  private exampleStates = {
+  private WindowBlindsPatternStates = {
     On: false,
     Brightness: 100,
   };
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: WindowBlindsPatternHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
 
@@ -32,11 +32,12 @@ export class ExamplePlatformAccessory {
 
     // get the LightBulb service if it exists, otherwise create a new LightBulb service
     // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
+    this.service = this.accessory.getService(this.platform.Service.WindowCovering) || this.accessory.addService(
+      this.platform.Service.WindowCovering);
 
     // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
+    // in this WindowBlindsPattern we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
+    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.WindowBlindsPatternDisplayName);
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Lightbulb
@@ -61,7 +62,7 @@ export class ExamplePlatformAccessory {
      * can use the same subtype id.)
      */
 
-    // Example: add two "motion sensor" services to the accessory
+    // WindowBlindsPattern: add two "motion sensor" services to the accessory
     const motionSensorOneService = this.accessory.getService('Motion Sensor One Name') ||
       this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
 
@@ -71,7 +72,7 @@ export class ExamplePlatformAccessory {
     /**
      * Updating characteristics values asynchronously.
      *
-     * Example showing how to update the state of a Characteristic asynchronously instead
+     * WindowBlindsPattern showing how to update the state of a Characteristic asynchronously instead
      * of using the `on('get')` handlers.
      * Here we change update the motion sensor trigger states on and off every 10 seconds
      * the `updateCharacteristic` method.
@@ -79,7 +80,7 @@ export class ExamplePlatformAccessory {
      */
     let motionDetected = false;
     setInterval(() => {
-      // EXAMPLE - inverse the trigger
+      // WindowBlindsPattern - inverse the trigger
       motionDetected = !motionDetected;
 
       // push the new value to HomeKit
@@ -93,18 +94,18 @@ export class ExamplePlatformAccessory {
 
   /**
    * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
+   * These are sent when the user changes the state of an accessory, for WindowBlindsPattern, turning on a Light bulb.
    */
   async setOn(value: CharacteristicValue) {
     // implement your own code to turn your device on/off
-    this.exampleStates.On = value as boolean;
+    this.WindowBlindsPatternStates.On = value as boolean;
 
     this.platform.log.debug('Set Characteristic On ->', value);
   }
 
   /**
    * Handle the "GET" requests from HomeKit
-   * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
+   * These are sent when HomeKit wants to know the current state of the accessory, for WindowBlindsPattern, checking if a Light bulb is on.
    *
    * GET requests should return as fast as possible. A long delay here will result in
    * HomeKit being unresponsive and a bad user experience in general.
@@ -112,12 +113,12 @@ export class ExamplePlatformAccessory {
    * If your device takes time to respond you should update the status of your device
    * asynchronously instead using the `updateCharacteristic` method instead.
 
-   * @example
+   * @WindowBlindsPattern
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
   async getOn(): Promise<CharacteristicValue> {
     // implement your own code to check if the device is on
-    const isOn = this.exampleStates.On;
+    const isOn = this.WindowBlindsPatternStates.On;
 
     this.platform.log.debug('Get Characteristic On ->', isOn);
 
@@ -129,11 +130,11 @@ export class ExamplePlatformAccessory {
 
   /**
    * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, changing the Brightness
+   * These are sent when the user changes the state of an accessory, for WindowBlindsPattern, changing the Brightness
    */
   async setBrightness(value: CharacteristicValue) {
     // implement your own code to set the brightness
-    this.exampleStates.Brightness = value as number;
+    this.WindowBlindsPatternStates.Brightness = value as number;
 
     this.platform.log.debug('Set Characteristic Brightness -> ', value);
   }
