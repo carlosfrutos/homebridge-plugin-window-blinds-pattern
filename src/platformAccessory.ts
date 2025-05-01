@@ -1,6 +1,25 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-
 import { WindowBlindsPatternHomebridgePlatform } from './platform.js';
+import * as request from 'request';
+
+// Default constants for window blinds
+const DEF_MIN_OPEN = 0;
+const DEF_MAX_OPEN = 100;
+const DEF_TIMEOUT = 5000;
+
+/**
+ * Extract value from a string using a regex pattern
+ */
+function extractValueFromPattern(pattern: RegExp, string: string, position = 1): string {
+  const matchArray = string.match(pattern);
+
+  if (matchArray === null) // pattern didn't match at all
+    throw new Error(`Pattern didn't match (value: '${string}', pattern: '${pattern}')`);
+  else if (position >= matchArray.length)
+    throw new Error("Couldn't find any group which can be extracted. The specified group from which the data should be extracted was out of bounds");
+  else
+    return matchArray[position];
+}
 
 /**
  * Platform Accessory
@@ -10,133 +29,262 @@ import { WindowBlindsPatternHomebridgePlatform } from './platform.js';
 export class WindowBlindsPatternPlatformAccessory {
   private service: Service;
 
-  /**
-   * These are just used to create a working WindowBlindsPattern
-   * You should implement your own code to track the state of your accessory
-   */
-  private WindowBlindsPatternStates = {
-    On: false,
-    Brightness: 100,
-  };
+  // Configuration properties
+  private name: string;
+  private debug: boolean;
+  private model: string;
+  private manufacturer: string;
+  private outputValueMultiplier: number;
+  private urlSetTargetPosition: string;
+  private urlGetCurrentPosition: string;
+  private statusPattern: RegExp;
+  private matchingGroup: number;
+  private serial: string;
+  private timeout: number;
+  private minOpen: number;
+  private maxOpen: number;
+
+  // Window blinds state variables
+  private currentPosition = 0;
+  private targetPosition = 100;
+  private positionState: CharacteristicValue;
 
   constructor(
     private readonly platform: WindowBlindsPatternHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
+    // Get device configuration from context
+    const device = accessory.context.device;
+    
+    // Initialize configuration properties from device context
+    this.name = device.displayName ?? 'Window Blinds';
+    this.debug = device.debug ?? false;
+    this.model = device.model ?? 'nodeMCU based DIY motorised blinds';
+    this.manufacturer = device.manufacturer ?? '@carlosfrutos';
+    this.outputValueMultiplier = device.outputValueMultiplier ?? 1;
+    this.urlSetTargetPosition = device.urlSetTargetPosition;
+    this.urlGetCurrentPosition = device.urlGetCurrentPosition;
+    
+    // Initialize status pattern from configuration, default to "([0-9]+)"
+    this.statusPattern = /([0-9]+)/;
+    if (device.statusPattern) {
+      if (typeof device.statusPattern === 'string') {
+        try {
+          this.statusPattern = new RegExp(device.statusPattern);
+        } catch (error) {
+          this.platform.log.warn('Invalid regex pattern provided. Using default pattern. ${error}');
+        }
+      } else {
+        this.platform.log.warn("Property 'statusPattern' was given in an unsupported type. Using default one!");
+      }
+    }
+    
+    // Initialize matching group from configuration
+    this.matchingGroup = 1;
+    if (device.matchingGroup) {
+      if (typeof device.matchingGroup === 'number' && Number.isInteger(device.matchingGroup)) {
+        this.matchingGroup = device.matchingGroup;
+      } else {
+        this.platform.log.warn("Property 'matchingGroup' was given in an unsupported type. Using default one!");
+      }
+    }
+    
+    this.serial = device.serial ?? 'HWB02';
+    this.timeout = device.timeout ?? DEF_TIMEOUT;
+    this.minOpen = device.minOpen ?? DEF_MIN_OPEN;
+    this.maxOpen = device.maxOpen ?? DEF_MAX_OPEN;
+    
+    this.positionState = this.platform.Characteristic.PositionState.STOPPED;
 
-    // set accessory information
+    // Set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, this.manufacturer)
+      .setCharacteristic(this.platform.Characteristic.Model, this.model)
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.serial);
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.WindowCovering) || this.accessory.addService(
-      this.platform.Service.WindowCovering);
+    // Get the WindowCovering service if it exists, otherwise create a new WindowCovering service
+    this.service = this.accessory.getService(this.platform.Service.WindowCovering) ?? 
+      this.accessory.addService(this.platform.Service.WindowCovering);
 
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this WindowBlindsPattern we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.WindowBlindsPatternDisplayName);
+    // Set the service name, this is what is displayed as the default name on the Home app
+    this.service.setCharacteristic(this.platform.Characteristic.Name, this.name);
 
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
+    // Register handlers for the required characteristics
+    this.service.getCharacteristic(this.platform.Characteristic.Name)
+      .onGet(this.getName.bind(this));
+      
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentPosition)
+      .onGet(this.getCurrentPosition.bind(this));
 
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this))                // SET - bind to the `setOn` method below
-      .onGet(this.getOn.bind(this));               // GET - bind to the `getOn` method below
+    this.service.getCharacteristic(this.platform.Characteristic.TargetPosition)
+      .onGet(this.getTargetPosition.bind(this))
+      .onSet(this.setTargetPosition.bind(this));
 
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(this.setBrightness.bind(this));       // SET - bind to the 'setBrightness` method below
-
-    /**
-     * Creating multiple services of the same type.
-     *
-     * To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-     * when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-     * this.accessory.getService('NAME') || this.accessory.addService(this.platform.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE_ID');
-     *
-     * The USER_DEFINED_SUBTYPE must be unique to the platform accessory (if you platform exposes multiple accessories, each accessory
-     * can use the same subtype id.)
-     */
-
-    // WindowBlindsPattern: add two "motion sensor" services to the accessory
-    const motionSensorOneService = this.accessory.getService('Motion Sensor One Name') ||
-      this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
-
-    const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name') ||
-      this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
-
-    /**
-     * Updating characteristics values asynchronously.
-     *
-     * WindowBlindsPattern showing how to update the state of a Characteristic asynchronously instead
-     * of using the `on('get')` handlers.
-     * Here we change update the motion sensor trigger states on and off every 10 seconds
-     * the `updateCharacteristic` method.
-     *
-     */
-    let motionDetected = false;
-    setInterval(() => {
-      // WindowBlindsPattern - inverse the trigger
-      motionDetected = !motionDetected;
-
-      // push the new value to HomeKit
-      motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-      motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
-
-      this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-      this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);
+    this.service.getCharacteristic(this.platform.Characteristic.PositionState)
+      .onGet(this.getPositionState.bind(this));
+      
+    // Set initial position state
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.PositionState, 
+      this.platform.Characteristic.PositionState.STOPPED
+    );
   }
 
   /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for WindowBlindsPattern, turning on a Light bulb.
+   * Handle requests to get the accessory name
    */
-  async setOn(value: CharacteristicValue) {
-    // implement your own code to turn your device on/off
-    this.WindowBlindsPatternStates.On = value as boolean;
-
-    this.platform.log.debug('Set Characteristic On ->', value);
+  async getName(): Promise<CharacteristicValue> {
+    this.platform.log.debug('getName:', this.name);
+    return this.name;
   }
 
   /**
-   * Handle the "GET" requests from HomeKit
-   * These are sent when HomeKit wants to know the current state of the accessory, for WindowBlindsPattern, checking if a Light bulb is on.
-   *
-   * GET requests should return as fast as possible. A long delay here will result in
-   * HomeKit being unresponsive and a bad user experience in general.
-   *
-   * If your device takes time to respond you should update the status of your device
-   * asynchronously instead using the `updateCharacteristic` method instead.
-
-   * @WindowBlindsPattern
-   * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
+   * Handle requests to get the current value of the "Current Position" characteristic
    */
-  async getOn(): Promise<CharacteristicValue> {
-    // implement your own code to check if the device is on
-    const isOn = this.WindowBlindsPatternStates.On;
-
-    this.platform.log.debug('Get Characteristic On ->', isOn);
-
-    // if you need to return an error to show the device as "Not Responding" in the Home app:
-    // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-
-    return isOn;
+  async getCurrentPosition(): Promise<CharacteristicValue> {
+    if (this.debug) {
+      this.platform.log.debug('GET CurrentPosition');
+    }
+    
+    // Return immediately with cached value if no URL is configured
+    if (!this.urlGetCurrentPosition) {
+      return this.currentPosition;
+    }
+    
+    return new Promise((resolve, reject) => {
+      const ops = {
+        uri: this.urlGetCurrentPosition,
+        method: 'GET',
+        timeout: this.timeout
+      };
+      
+      request(ops, (error: { message: any; }, response: any, body: string) => {
+        if (error) {
+          this.platform.log.error(`HTTP bad response (${ops.uri}): ${error.message}`);
+          return reject(error);
+        }
+        
+        try {
+          const matches = this.statusPattern.exec(body);
+          if (!matches) {
+            throw new Error(`Pattern didn't match in response: ${body}`);
+          }
+          
+          const value = parseInt(matches[this.matchingGroup], 10);
+          
+          if (this.debug) {
+            this.platform.log.debug(`Matched groups: ${matches}. Window blind's current position is ${matches[this.matchingGroup]}`);
+          }
+          
+          if (value < this.minOpen || value > this.maxOpen || isNaN(value)) {
+            throw new Error('Invalid value received');
+          }
+          
+          this.currentPosition = value;
+          this.service.updateCharacteristic(
+            this.platform.Characteristic.CurrentPosition, 
+            this.currentPosition
+          );
+          this.service.updateCharacteristic(
+            this.platform.Characteristic.PositionState, 
+            this.platform.Characteristic.PositionState.STOPPED
+          );
+          
+          resolve(this.currentPosition);
+        } catch (parseErr) {
+          if (parseErr instanceof Error) {
+            this.platform.log.error(`Error processing received information: ${parseErr.message} body: ${body}`);
+          } else {
+            this.platform.log.error(`Error processing received information: ${String(parseErr)} body: ${body}`);
+          }
+          reject(parseErr);
+        }
+      });
+    });
   }
 
   /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for WindowBlindsPattern, changing the Brightness
+   * Handle requests to get the current value of the "Target Position" characteristic
    */
-  async setBrightness(value: CharacteristicValue) {
-    // implement your own code to set the brightness
-    this.WindowBlindsPatternStates.Brightness = value as number;
-
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
+  async getTargetPosition(): Promise<CharacteristicValue> {
+    // Set position state to stopped
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.PositionState, 
+      this.platform.Characteristic.PositionState.STOPPED
+    );
+    return this.targetPosition;
   }
 
+  /**
+   * Handle requests to set the "Target Position" characteristic
+   */
+  async setTargetPosition(value: CharacteristicValue): Promise<void> {
+    const numValue = value as number;
+    
+    if (this.debug) {
+      this.platform.log.debug(`SET TargetPosition from ${this.targetPosition} to ${numValue}`);
+    }
+    
+    this.targetPosition = numValue;
+
+    if (this.targetPosition > this.currentPosition) {
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.PositionState, 
+        this.platform.Characteristic.PositionState.INCREASING
+      );
+    } else if (this.targetPosition < this.currentPosition) {
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.PositionState, 
+        this.platform.Characteristic.PositionState.DECREASING
+      );
+    } else {
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.PositionState, 
+        this.platform.Characteristic.PositionState.STOPPED
+      );
+    }
+
+    // Return immediately if no URL is configured
+    if (!this.urlSetTargetPosition) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const url = this.urlSetTargetPosition.replace(
+        '%VALUE%', 
+        Math.round(numValue * this.outputValueMultiplier).toString()
+      );
+      
+      request(url, (error: { message: any; }, response: any, body: any) => {
+        if (error) {
+          this.platform.log.error(`HTTP error when setting position: ${error.message}`);
+          return reject(error);
+        }
+        
+        // Update current position after movement completes
+        this.currentPosition = this.targetPosition;
+        this.service.updateCharacteristic(
+          this.platform.Characteristic.CurrentPosition, 
+          this.currentPosition
+        );
+        this.service.updateCharacteristic(
+          this.platform.Characteristic.PositionState, 
+          this.platform.Characteristic.PositionState.STOPPED
+        );
+        
+        if (this.debug) {
+          this.platform.log.debug(`currentPosition is now ${this.currentPosition}`);
+        }
+        
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Handle requests to get the current value of the "Position State" characteristic
+   */
+  async getPositionState(): Promise<CharacteristicValue> {
+    return this.positionState;
+  }
 }

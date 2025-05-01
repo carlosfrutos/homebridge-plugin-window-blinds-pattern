@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "WindowBlindsPattern",
   "pluginType": "platform",
   "singular": true,
   "schema": {
@@ -9,7 +9,101 @@
         "title": "Name",
         "type": "string",
         "required": true,
-        "default": "Example Dynamic Platform"
+        "default": "Window Blinds Pattern"
+      },
+      "devices": {
+        "title": "Window Blinds Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "blindUniqueId": {
+              "title": "Blind Unique ID",
+              "type": "string",
+              "required": true,
+              "description": "A unique identifier for this blind (will be used to generate the accessory UUID)"
+            },
+            "displayName": {
+              "title": "Display Name",
+              "type": "string",
+              "required": true,
+              "description": "The name that will be displayed in HomeKit"
+            },
+            "debug": {
+              "title": "Debug Mode",
+              "type": "boolean",
+              "default": false,
+              "description": "Enable debug logging for this device"
+            },
+            "model": {
+              "title": "Model",
+              "type": "string",
+              "default": "nodeMCU based DIY motorised blinds",
+              "description": "The model name of your window blinds"
+            },
+            "manufacturer": {
+              "title": "Manufacturer",
+              "type": "string",
+              "default": "@carlosfrutos",
+              "description": "The manufacturer of your window blinds"
+            },
+            "serial": {
+              "title": "Serial Number",
+              "type": "string",
+              "default": "HWB02",
+              "description": "The serial number of your window blinds"
+            },
+            "urlGetCurrentPosition": {
+              "title": "URL to Get Current Position",
+              "type": "string",
+              "required": true,
+              "format": "uri",
+              "description": "The URL to get the current position of the blinds"
+            },
+            "urlSetTargetPosition": {
+              "title": "URL to Set Target Position",
+              "type": "string",
+              "required": true,
+              "description": "The URL to set the target position of the blinds (use %VALUE% as placeholder for the position value)"
+            },
+            "statusPattern": {
+              "title": "Status Pattern",
+              "type": "string",
+              "default": "([0-9]+)",
+              "description": "Regular expression to extract position from HTTP response (default captures first number)"
+            },
+            "matchingGroup": {
+              "title": "Matching Group",
+              "type": "integer",
+              "default": 1,
+              "description": "Which regex capture group to use for the position value (default: 1)"
+            },
+            "outputValueMultiplier": {
+              "title": "Output Value Multiplier",
+              "type": "number",
+              "default": 1,
+              "description": "Multiplier for the position value sent to the device"
+            },
+            "timeout": {
+              "title": "Timeout",
+              "type": "integer",
+              "default": 5000,
+              "description": "HTTP request timeout in milliseconds"
+            },
+            "minOpen": {
+              "title": "Minimum Open Position",
+              "type": "integer",
+              "default": 0,
+              "description": "Minimum position value (usually 0 for fully closed)"
+            },
+            "maxOpen": {
+              "title": "Maximum Open Position",
+              "type": "integer",
+              "default": 100,
+              "description": "Maximum position value (usually 100 for fully open)"
+            }
+          }
+        }
       }
     }
   }

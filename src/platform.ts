@@ -63,7 +63,7 @@ export class WindowBlindsPatternHomebridgePlatform implements DynamicPlatformPlu
     // WindowBlindsPattern ONLY
     // A real plugin you would discover accessories from the local network, cloud services
     // or a user-defined array in the platform config.
-    const devices = this.config.devices || [];
+    const devices = this.config.devices ?? [];
 
     // const WindowBlindsPatternDevices = [
     //   {
