@@ -2,8 +2,8 @@
   "private": true,
   "displayName": "Window Blinds Pattern",
   "name": "homebridge-plugin-window-blinds-pattern",
-  "version": "1.0.0",
-  "description": "Plungin for Homebridge to control window blinds with a regex pattern.",
+  "version": "2.0.0",
+  "description": "Plugin for Homebridge to control window blinds with a regex pattern.",
   "license": "Apache-2.0",
   "type": "module",
   "repository": {
@@ -14,15 +14,15 @@
     "url": "https://github.com/carlosfrutos/homebridge-plugin-window-blinds-pattern/issues"
   },
   "engines": {
-    "node": "^18.17.0 || ^20.9.0",
-    "homebridge": "^1.8.0"
+    "node": "^18.20.4 || ^20.18.0 || ^22.10.0",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
   },
   "main": "dist/index.js",
   "scripts": {
-    "lint": "eslint src/**/*.ts --max-warnings=0",
-    "watch": "npm run build && npm link && nodemon",
     "build": "rimraf ./dist && tsc",
-    "prepublishOnly": "npm run lint && npm run build"
+    "lint": "eslint . --max-warnings=0",
+    "prepublishOnly": "npm run lint && npm run build",
+    "watch": "npm run build && npm link && nodemon"
   },
   "keywords": [
     "homebridge-plugin",
@@ -30,18 +30,17 @@
     "regex pattern"
   ],
   "dependencies": {
-    "request": "^2.88.2"
+    "homebridge-lib": "^7.1.4"
   },
   "devDependencies": {
-    "@types/node": "^20.12.13",
-    "@types/request": "^2.48.8",
-    "@typescript-eslint/eslint-plugin": "^7.11.0",
-    "@typescript-eslint/parser": "^7.11.0",
-    "eslint": "^8.57.0",
-    "homebridge": "^1.8.2",
-    "nodemon": "^3.1.2",
-    "rimraf": "^5.0.7",
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.5",
+    "eslint": "^9.21.0",
+    "homebridge": "^2.0.0-beta.0",
+    "nodemon": "^3.1.9",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.1"
   }
 }

@@ -1,8 +1,8 @@
 # Ignore compiled code
 dist
-.history
 
 # ------------- Defaults ------------- #
+.DS_Store
 
 # Logs
 logs
@@ -122,3 +122,5 @@ dist
 
 # Webstorm
 .idea
+
+/test/hbConfig

@@ -1,6 +1,7 @@
 {
   "pluginAlias": "WindowBlindsPattern",
   "pluginType": "platform",
+  "strictValidation": false,
   "singular": true,
   "schema": {
     "type": "object",
@@ -38,7 +39,7 @@
             "model": {
               "title": "Model",
               "type": "string",
-              "default": "nodeMCU based DIY motorised blinds",
+              "default": "nodeMCU based DIY motorized blinds",
               "description": "The model name of your window blinds"
             },
             "manufacturer": {

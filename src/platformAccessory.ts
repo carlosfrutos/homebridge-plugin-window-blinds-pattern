@@ -1,6 +1,6 @@
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { WindowBlindsPatternHomebridgePlatform } from './platform.js';
-import * as request from 'request';
+import fetch from 'node-fetch';
 
 // Default constants for window blinds
 const DEF_MIN_OPEN = 0;
@@ -13,12 +13,13 @@ const DEF_TIMEOUT = 5000;
 function extractValueFromPattern(pattern: RegExp, string: string, position = 1): string {
   const matchArray = string.match(pattern);
 
-  if (matchArray === null) // pattern didn't match at all
+  if (matchArray === null) { // pattern didn't match at all
     throw new Error(`Pattern didn't match (value: '${string}', pattern: '${pattern}')`);
-  else if (position >= matchArray.length)
-    throw new Error("Couldn't find any group which can be extracted. The specified group from which the data should be extracted was out of bounds");
-  else
+  } else if (position >= matchArray.length) {
+    throw new Error('Couldn\'t find any group which can be extracted. The specified group from which the data should be extracted was out of bounds');
+  } else {
     return matchArray[position];
+  }
 }
 
 /**
@@ -27,27 +28,27 @@ function extractValueFromPattern(pattern: RegExp, string: string, position = 1):
  * Each accessory may expose multiple services of different service types.
  */
 export class WindowBlindsPatternPlatformAccessory {
-  private service: Service;
+  private readonly service: Service;
 
   // Configuration properties
-  private name: string;
-  private debug: boolean;
-  private model: string;
-  private manufacturer: string;
-  private outputValueMultiplier: number;
-  private urlSetTargetPosition: string;
-  private urlGetCurrentPosition: string;
-  private statusPattern: RegExp;
-  private matchingGroup: number;
-  private serial: string;
-  private timeout: number;
-  private minOpen: number;
-  private maxOpen: number;
+  private readonly name: string;
+  private readonly debug: boolean;
+  private readonly model: string;
+  private readonly manufacturer: string;
+  private readonly outputValueMultiplier: number;
+  private readonly urlSetTargetPosition: string;
+  private readonly urlGetCurrentPosition: string;
+  private readonly statusPattern: RegExp;
+  private readonly matchingGroup: number;
+  private readonly serial: string;
+  private readonly timeout: number;
+  private readonly minOpen: number;
+  private readonly maxOpen: number;
 
   // Window blinds state variables
   private currentPosition = 0;
   private targetPosition = 100;
-  private positionState: CharacteristicValue;
+  private readonly positionState: CharacteristicValue;
 
   constructor(
     private readonly platform: WindowBlindsPatternHomebridgePlatform,
@@ -55,7 +56,7 @@ export class WindowBlindsPatternPlatformAccessory {
   ) {
     // Get device configuration from context
     const device = accessory.context.device;
-    
+
     // Initialize configuration properties from device context
     this.name = device.displayName ?? 'Window Blinds';
     this.debug = device.debug ?? false;
@@ -64,36 +65,36 @@ export class WindowBlindsPatternPlatformAccessory {
     this.outputValueMultiplier = device.outputValueMultiplier ?? 1;
     this.urlSetTargetPosition = device.urlSetTargetPosition;
     this.urlGetCurrentPosition = device.urlGetCurrentPosition;
-    
-    // Initialize status pattern from configuration, default to "([0-9]+)"
-    this.statusPattern = /([0-9]+)/;
+
+    // Initialize status pattern from configuration, default to "(\d+)"
+    this.statusPattern = /(\d+)/;
     if (device.statusPattern) {
       if (typeof device.statusPattern === 'string') {
         try {
           this.statusPattern = new RegExp(device.statusPattern);
         } catch (error) {
-          this.platform.log.warn('Invalid regex pattern provided. Using default pattern. ${error}');
+          this.platform.log.warn(`Invalid regex pattern provided. Using default pattern. ${error instanceof Error ? error.message : String(error)}`);
         }
       } else {
-        this.platform.log.warn("Property 'statusPattern' was given in an unsupported type. Using default one!");
+        this.platform.log.warn('Property \'statusPattern\' was given in an unsupported type. Using default one!');
       }
     }
-    
+
     // Initialize matching group from configuration
     this.matchingGroup = 1;
     if (device.matchingGroup) {
       if (typeof device.matchingGroup === 'number' && Number.isInteger(device.matchingGroup)) {
         this.matchingGroup = device.matchingGroup;
       } else {
-        this.platform.log.warn("Property 'matchingGroup' was given in an unsupported type. Using default one!");
+        this.platform.log.warn('Property \'matchingGroup\' was given in an unsupported type. Using default one!');
       }
     }
-    
+
     this.serial = device.serial ?? 'HWB02';
     this.timeout = device.timeout ?? DEF_TIMEOUT;
     this.minOpen = device.minOpen ?? DEF_MIN_OPEN;
     this.maxOpen = device.maxOpen ?? DEF_MAX_OPEN;
-    
+
     this.positionState = this.platform.Characteristic.PositionState.STOPPED;
 
     // Set accessory information
@@ -103,7 +104,7 @@ export class WindowBlindsPatternPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.SerialNumber, this.serial);
 
     // Get the WindowCovering service if it exists, otherwise create a new WindowCovering service
-    this.service = this.accessory.getService(this.platform.Service.WindowCovering) ?? 
+    this.service = this.accessory.getService(this.platform.Service.WindowCovering) ??
       this.accessory.addService(this.platform.Service.WindowCovering);
 
     // Set the service name, this is what is displayed as the default name on the Home app
@@ -112,7 +113,7 @@ export class WindowBlindsPatternPlatformAccessory {
     // Register handlers for the required characteristics
     this.service.getCharacteristic(this.platform.Characteristic.Name)
       .onGet(this.getName.bind(this));
-      
+
     this.service.getCharacteristic(this.platform.Characteristic.CurrentPosition)
       .onGet(this.getCurrentPosition.bind(this));
 
@@ -122,11 +123,11 @@ export class WindowBlindsPatternPlatformAccessory {
 
     this.service.getCharacteristic(this.platform.Characteristic.PositionState)
       .onGet(this.getPositionState.bind(this));
-      
+
     // Set initial position state
     this.service.updateCharacteristic(
-      this.platform.Characteristic.PositionState, 
-      this.platform.Characteristic.PositionState.STOPPED
+      this.platform.Characteristic.PositionState,
+      this.platform.Characteristic.PositionState.STOPPED,
     );
   }
 
@@ -145,62 +146,67 @@ export class WindowBlindsPatternPlatformAccessory {
     if (this.debug) {
       this.platform.log.debug('GET CurrentPosition');
     }
-    
+
     // Return immediately with cached value if no URL is configured
     if (!this.urlGetCurrentPosition) {
       return this.currentPosition;
     }
-    
-    return new Promise((resolve, reject) => {
-      const ops = {
-        uri: this.urlGetCurrentPosition,
+
+    try {
+      // Setup AbortController for timeout functionality
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+      const response = await fetch(this.urlGetCurrentPosition, {
         method: 'GET',
-        timeout: this.timeout
-      };
-      
-      request(ops, (error: { message: any; }, response: any, body: string) => {
-        if (error) {
-          this.platform.log.error(`HTTP bad response (${ops.uri}): ${error.message}`);
-          return reject(error);
-        }
-        
-        try {
-          const matches = this.statusPattern.exec(body);
-          if (!matches) {
-            throw new Error(`Pattern didn't match in response: ${body}`);
-          }
-          
-          const value = parseInt(matches[this.matchingGroup], 10);
-          
-          if (this.debug) {
-            this.platform.log.debug(`Matched groups: ${matches}. Window blind's current position is ${matches[this.matchingGroup]}`);
-          }
-          
-          if (value < this.minOpen || value > this.maxOpen || isNaN(value)) {
-            throw new Error('Invalid value received');
-          }
-          
-          this.currentPosition = value;
-          this.service.updateCharacteristic(
-            this.platform.Characteristic.CurrentPosition, 
-            this.currentPosition
-          );
-          this.service.updateCharacteristic(
-            this.platform.Characteristic.PositionState, 
-            this.platform.Characteristic.PositionState.STOPPED
-          );
-          
-          resolve(this.currentPosition);
-        } catch (parseErr) {
-          if (parseErr instanceof Error) {
-            this.platform.log.error(`Error processing received information: ${parseErr.message} body: ${body}`);
-          } else {
-            this.platform.log.error(`Error processing received information: ${String(parseErr)} body: ${body}`);
-          }
-          reject(parseErr);
-        }
+        signal: controller.signal,
       });
-    });
+
+      // Clear timeout as request completed
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const body = await response.text();
+
+      try {
+        const extractedValue = extractValueFromPattern(this.statusPattern, body, this.matchingGroup);
+        const value = parseInt(extractedValue, 10);
+
+        if (this.debug) {
+          this.platform.log.debug(`Matched value: ${extractedValue}. Window blind's current position is ${value}`);
+        }
+
+        if (value < this.minOpen || value > this.maxOpen || isNaN(value)) {
+          throw new Error(`Invalid value received: ${value}`);
+        }
+
+        this.currentPosition = value;
+        this.service.updateCharacteristic(
+          this.platform.Characteristic.CurrentPosition,
+          this.currentPosition,
+        );
+        this.service.updateCharacteristic(
+          this.platform.Characteristic.PositionState,
+          this.platform.Characteristic.PositionState.STOPPED,
+        );
+
+        return this.currentPosition;
+      } catch (parseErr) {
+        if (parseErr instanceof Error) {
+          this.platform.log.error(`Error processing received information: ${parseErr.message} body: ${body}`);
+        } else {
+          this.platform.log.error(`Error processing received information: ${String(parseErr)} body: ${body}`);
+        }
+        throw parseErr;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.platform.log.error(`HTTP bad response (${this.urlGetCurrentPosition}): ${errorMessage}`);
+      throw error;
+    }
   }
 
   /**
@@ -209,8 +215,8 @@ export class WindowBlindsPatternPlatformAccessory {
   async getTargetPosition(): Promise<CharacteristicValue> {
     // Set position state to stopped
     this.service.updateCharacteristic(
-      this.platform.Characteristic.PositionState, 
-      this.platform.Characteristic.PositionState.STOPPED
+      this.platform.Characteristic.PositionState,
+      this.platform.Characteristic.PositionState.STOPPED,
     );
     return this.targetPosition;
   }
@@ -220,27 +226,27 @@ export class WindowBlindsPatternPlatformAccessory {
    */
   async setTargetPosition(value: CharacteristicValue): Promise<void> {
     const numValue = value as number;
-    
+
     if (this.debug) {
       this.platform.log.debug(`SET TargetPosition from ${this.targetPosition} to ${numValue}`);
     }
-    
+
     this.targetPosition = numValue;
 
     if (this.targetPosition > this.currentPosition) {
       this.service.updateCharacteristic(
-        this.platform.Characteristic.PositionState, 
-        this.platform.Characteristic.PositionState.INCREASING
+        this.platform.Characteristic.PositionState,
+        this.platform.Characteristic.PositionState.INCREASING,
       );
     } else if (this.targetPosition < this.currentPosition) {
       this.service.updateCharacteristic(
-        this.platform.Characteristic.PositionState, 
-        this.platform.Characteristic.PositionState.DECREASING
+        this.platform.Characteristic.PositionState,
+        this.platform.Characteristic.PositionState.DECREASING,
       );
     } else {
       this.service.updateCharacteristic(
-        this.platform.Characteristic.PositionState, 
-        this.platform.Characteristic.PositionState.STOPPED
+        this.platform.Characteristic.PositionState,
+        this.platform.Characteristic.PositionState.STOPPED,
       );
     }
 
@@ -249,36 +255,36 @@ export class WindowBlindsPatternPlatformAccessory {
       return;
     }
 
-    return new Promise((resolve, reject) => {
-      const url = this.urlSetTargetPosition.replace(
-        '%VALUE%', 
-        Math.round(numValue * this.outputValueMultiplier).toString()
+    const url = this.urlSetTargetPosition.replace(
+      '%VALUE%',
+      Math.round(numValue * this.outputValueMultiplier).toString(),
+    );
+
+    try {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Update current position after movement completes
+      this.currentPosition = this.targetPosition;
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.CurrentPosition,
+        this.currentPosition,
       );
-      
-      request(url, (error: { message: any; }, response: any, body: any) => {
-        if (error) {
-          this.platform.log.error(`HTTP error when setting position: ${error.message}`);
-          return reject(error);
-        }
-        
-        // Update current position after movement completes
-        this.currentPosition = this.targetPosition;
-        this.service.updateCharacteristic(
-          this.platform.Characteristic.CurrentPosition, 
-          this.currentPosition
-        );
-        this.service.updateCharacteristic(
-          this.platform.Characteristic.PositionState, 
-          this.platform.Characteristic.PositionState.STOPPED
-        );
-        
-        if (this.debug) {
-          this.platform.log.debug(`currentPosition is now ${this.currentPosition}`);
-        }
-        
-        resolve();
-      });
-    });
+      this.service.updateCharacteristic(
+        this.platform.Characteristic.PositionState,
+        this.platform.Characteristic.PositionState.STOPPED,
+      );
+
+      if (this.debug) {
+        this.platform.log.debug(`currentPosition is now ${this.currentPosition}`);
+      }
+    } catch (error) {
+      this.platform.log.error(`HTTP error when setting position: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
   }
 
   /**
