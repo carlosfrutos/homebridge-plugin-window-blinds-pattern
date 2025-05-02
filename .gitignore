@@ -1,6 +1,8 @@
 # Ignore compiled code
 dist
 
+*.zip
+*.tgz
 # ------------- Defaults ------------- #
 .DS_Store
 
