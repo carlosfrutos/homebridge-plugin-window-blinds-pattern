@@ -22,7 +22,10 @@
     "build": "rimraf ./dist && tsc",
     "lint": "eslint . --max-warnings=0",
     "prepublishOnly": "npm run lint && npm run build",
-    "watch": "npm run build && npm link && nodemon"
+    "watch": "npm run build && npm link && nodemon",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "prepublish": "npm pack && mv homebridge-plugin-window-blinds-pattern-*.tgz homebridge-plugin-window-blinds-pattern.tgz"
   },
   "keywords": [
     "homebridge-plugin",
@@ -30,15 +33,19 @@
     "regex pattern"
   ],
   "dependencies": {
-    "homebridge-lib": "^7.1.4"
+    "homebridge-lib": "^7.1.4",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.13.5",
     "eslint": "^9.21.0",
     "homebridge": "^2.0.0-beta.0",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.9",
     "rimraf": "^6.0.1",
+    "ts-jest": "^29.3.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.1"
