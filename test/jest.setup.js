@@ -1,16 +1,9 @@
 import { TextEncoder, TextDecoder } from 'util';
 import { jest } from '@jest/globals';
 
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder;
+globalThis.TextEncoder = TextEncoder;
+globalThis.TextDecoder = TextDecoder;
 
-// Mock node-fetch
-// jest.mock('node-fetch', () => ({
-//   __esModule: true,
-//   default: jest.fn().mockImplementation(() => 
-//     Promise.resolve({
-//       ok: true,
-//       text: () => Promise.resolve('50'),
-//     }),
-//   ),
-// }));
+// Mock fetch for tests
+globalThis.fetch = jest.fn();
+globalThis.AbortController = jest.fn();

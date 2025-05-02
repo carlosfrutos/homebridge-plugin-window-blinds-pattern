@@ -96,7 +96,7 @@ describe('WindowBlindsPatternPlatformAccessory', () => {
   });
 
   it('should get the name of the accessory', async () => {
-    // @ts-ignore - Accessing private method for testing
+    // @ts-expect-error - Accessing private method for testing
     const name = await accessory.getName();
     expect(name).toBeDefined();
     expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('getName'), expect.any(String));
@@ -104,7 +104,7 @@ describe('WindowBlindsPatternPlatformAccessory', () => {
 
   // Skip the tests that rely on the fetch mock until we can properly test this in ES modules
   it.skip('should get current position', async () => {
-    // @ts-ignore - Accessing private method for testing
+    // @ts-expect-error - Accessing private method for testing
     const position = await accessory.getCurrentPosition();
     
     // Verify mock fetch was called with the right URL
@@ -124,7 +124,7 @@ describe('WindowBlindsPatternPlatformAccessory', () => {
     // Reset the mock function between tests
     mockFetchFn.mockClear();
     
-    // @ts-ignore - Accessing private method for testing
+    // @ts-expect-error - Accessing private method for testing
     await accessory.setTargetPosition(75);
     
     // Check fetch was called with the URL containing the position value
@@ -136,7 +136,7 @@ describe('WindowBlindsPatternPlatformAccessory', () => {
   });
 
   it('should get position state', async () => {
-    // @ts-ignore - Accessing private method for testing
+    // @ts-expect-error - Accessing private method for testing
     const state = await accessory.getPositionState();
     expect(state).toBeDefined();
   });

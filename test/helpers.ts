@@ -1,95 +1,87 @@
-import { Logging } from 'homebridge';
+import { PlatformAccessory } from 'homebridge';
 import { jest } from '@jest/globals';
 
-/**
- * Creates a mock Homebridge API
- */
-export function createMockAPI(): any {
+// Define types to replace 'any'
+type ServiceMap = Record<string, jest.Mock>;
+type CharacteristicMap = Record<string, jest.Mock>;
+type LogFunction = jest.Mock;
+type Logger = Record<'debug' | 'info' | 'warn' | 'error', LogFunction>;
+
+// Functions moved above their usage to fix the linting error
+function createMockServiceTypes(): ServiceMap {
   return {
-    hap: {
-      Service: createMockServiceTypes(),
-      Characteristic: createMockCharacteristicTypes(),
-      uuid: {
-        generate: jest.fn().mockReturnValue('test-uuid'),
-      },
-    },
-    registerPlatform: jest.fn(),
-    registerAccessory: jest.fn(),
-    publishExternalAccessories: jest.fn(),
-    registerPlatformAccessories: jest.fn(),
-    updatePlatformAccessories: jest.fn(),
-    unregisterPlatformAccessories: jest.fn(),
-    on: jest.fn(),
-    user: {
-      configPath: jest.fn().mockReturnValue('/mock/config/path'),
-      storagePath: jest.fn().mockReturnValue('/mock/storage/path'),
-      persistPath: jest.fn().mockReturnValue('/mock/persist/path'),
-      cachedAccessoriesPath: jest.fn().mockReturnValue('/mock/accessories/path'),
-    },
-    version: 1.8,
-    platformAccessory: jest.fn().mockImplementation((displayName, uuid) => {
-      return {
-        displayName,
-        UUID: uuid,
-        context: {},
-        getService: jest.fn(),
-        addService: jest.fn(),
-      };
-    }),
+    AccessoryInformation: jest.fn(),
+    WindowCovering: jest.fn(),
   };
 }
 
-/**
- * Creates mock Service types for testing
- */
-export function createMockServiceTypes(): any {
-  const mockService = {
-    getCharacteristic: jest.fn().mockImplementation(() => ({
-      onGet: jest.fn().mockReturnThis(),
-      onSet: jest.fn().mockReturnThis(),
-    })),
-    setCharacteristic: jest.fn().mockReturnThis(),
-    updateCharacteristic: jest.fn().mockReturnThis(),
-  };
-
-  // Create constructor functions for each service type
-  const WindowCovering = jest.fn().mockImplementation(() => mockService);
-  const AccessoryInformation = jest.fn().mockImplementation(() => mockService);
-
+function createMockCharacteristicTypes(): CharacteristicMap {
   return {
-    WindowCovering,
-    AccessoryInformation,
-  };
-}
-
-/**
- * Creates mock Characteristic types for testing
- */
-export function createMockCharacteristicTypes(): any {
-  return {
-    CurrentPosition: jest.fn(),
-    PositionState: {
-      INCREASING: 1,
-      DECREASING: 0,
-      STOPPED: 2,
-    },
-    TargetPosition: jest.fn(),
     Name: jest.fn(),
     Manufacturer: jest.fn(),
     Model: jest.fn(),
     SerialNumber: jest.fn(),
+    CurrentPosition: jest.fn(),
+    TargetPosition: jest.fn(),
+    PositionState: jest.fn(),
   };
 }
 
-/**
- * Creates a mock logger object
- */
-export function createMockLogger(): Logging {
+export function createMockAPI() {
+  const mockServiceTypes = createMockServiceTypes();
+  const mockCharacteristicTypes = createMockCharacteristicTypes();
+
+  return {
+    Service: mockServiceTypes,
+    Characteristic: {
+      ...mockCharacteristicTypes,
+      PositionState: {
+        DECREASING: 0,
+        INCREASING: 1,
+        STOPPED: 2,
+      },
+    },
+    hap: {
+      Service: mockServiceTypes,
+      Characteristic: mockCharacteristicTypes,
+    },
+  };
+}
+
+export function createMockAccessory(context: Record<string, unknown> = {}): PlatformAccessory {
+  const mockService = {
+    getCharacteristic: jest.fn().mockReturnThis(),
+    setCharacteristic: jest.fn().mockReturnThis(),
+    updateCharacteristic: jest.fn().mockReturnThis(),
+  };
+
+  return {
+    UUID: 'test-uuid',
+    displayName: 'Test Accessory',
+    context,
+    services: [mockService],
+    getService: jest.fn(() => {
+      return mockService;
+    }),
+    addService: jest.fn(() => mockService),
+  } as unknown as PlatformAccessory;
+}
+
+export function createMockLogger(): Logger {
   return {
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    success: jest.fn(),
-  } as unknown as Logging;
+  };
+}
+
+export function createMockPlatform(config: Record<string, unknown> = {}) {
+  return {
+    log: createMockLogger(),
+    config,
+    api: createMockAPI(),
+    Service: createMockAPI().Service,
+    Characteristic: createMockAPI().Characteristic,
+  };
 }
