@@ -1,5 +1,5 @@
 {
-  "private": true,
+  "private": false,
   "displayName": "Window Blinds Pattern",
   "name": "homebridge-plugin-window-blinds-pattern",
   "version": "2.0.0",
